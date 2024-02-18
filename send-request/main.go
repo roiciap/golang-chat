@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	loginUrl = "http://localhost:8080/login"
+	loginUrl    = "http://localhost:8080/login"
+	registerUrl = "http://localhost:8080/register"
 )
 
 func selectApi() (url string, err error) {
@@ -20,14 +21,15 @@ func selectApi() (url string, err error) {
 		input string
 	)
 
-	fmt.Println("Wybierz api:\n1. Login")
+	fmt.Println("Wybierz api:\n1. Login\n2. Register")
 
 	fmt.Scanln(&input)
 
-	// input, err := reader.ReadString('\n')
 	switch input {
 	case "1":
 		url = loginUrl
+	case "2":
+		url = registerUrl
 	default:
 		err = errors.Join(err, errors.New("niepoprawny wybór"))
 	}
@@ -61,7 +63,7 @@ func prepareRequestBody() map[string]string {
 
 func sendRequest(bodyMap map[string]string, url string, client *http.Client) (res *http.Response, err error) {
 	requestBody, _ := json.Marshal(bodyMap)
-	req, err := http.NewRequest(http.MethodGet, url, bytes.NewReader(requestBody))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(requestBody))
 	if err != nil {
 		return
 	}
