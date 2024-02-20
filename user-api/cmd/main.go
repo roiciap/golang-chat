@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/roiciap/golang/user-api/auth"
 	"github.com/roiciap/golang/user-api/handlers"
 )
 
 func main() {
 	mux := http.NewServeMux()
 
-	handler, err := handlers.CreateAccountHandler()
+	authHandler := auth.CreateJWTAuthentication([]byte("secret"))
+
+	handler, err := handlers.CreateAccountHandler(authHandler)
 	if err != nil {
 		fmt.Println(err.Error())
 	}

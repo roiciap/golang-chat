@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sync"
 
+	"github.com/roiciap/golang/user-api/auth"
 	"github.com/roiciap/golang/user-api/model"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
@@ -19,19 +20,23 @@ var (
 )
 
 type AccountHandler struct {
-	Store *credDatastore
+	Store        *credDatastore
+	AuthStrategy *auth.IAuthenticationStrategy
 }
 
-func CreateAccountHandler(creds ...model.Credentials) (*AccountHandler, error) {
+func CreateAccountHandler(authStrategy auth.IAuthenticationStrategy, creds ...model.Credentials) (*AccountHandler, error) {
 	handler := &AccountHandler{
 		Store: &credDatastore{
 			Database: map[int]model.Account{},
 			RWMutex:  &sync.RWMutex{},
+			nextId:   1,
 		},
+		AuthStrategy: &authStrategy,
 	}
+
 	var errs error
 	for _, credsItem := range creds {
-		err := handler.addUser(credsItem)
+		_, err := handler.addUser(credsItem)
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
@@ -41,7 +46,7 @@ func CreateAccountHandler(creds ...model.Credentials) (*AccountHandler, error) {
 
 type credDatastore struct {
 	Database map[int]model.Account
-	nextId   int `default:"1"`
+	nextId   int
 	*sync.RWMutex
 }
 
@@ -75,6 +80,7 @@ func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -87,30 +93,30 @@ func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.Store.RWMutex.Lock()
-	err = h.addUser(creds)
+	_, err = h.addUser(creds)
 	h.Store.RWMutex.Unlock()
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *AccountHandler) addUser(creds model.Credentials) error {
+func (h *AccountHandler) addUser(creds model.Credentials) (int, error) {
 	if h.findCredId(creds) != -1 {
-		return errors.New("user  " + creds.Login + " already exist")
+		return -1, errors.New("user  " + creds.Login + " already exist")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(creds.Password), 14)
 	if err != nil {
-		return errors.New("problem creating user")
+		return -1, errors.New("problem creating user")
 	}
 	newUser := model.Account{Login: creds.Login, PasswordHash: hash}
-	h.Store.Database[h.Store.nextId] = newUser
+	userId := h.Store.nextId
+	h.Store.Database[userId] = newUser
 	h.Store.nextId++
-	return nil
+	return userId, nil
 }
 
 func (h *AccountHandler) checkUserCreds(creds model.Credentials) error {
@@ -123,7 +129,10 @@ func (h *AccountHandler) checkUserCreds(creds model.Credentials) error {
 
 	err := bcrypt.CompareHashAndPassword([]byte(acc.PasswordHash), []byte(creds.Password))
 	if err != nil {
-		return errors.New("password doesnt match")
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return errors.New("passwords doesnt match")
+		}
+		return errors.New("internal: problem in comparing passwords")
 	}
 	return nil
 }
