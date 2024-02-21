@@ -1,4 +1,4 @@
-package auth
+package myauth
 
 import (
 	"errors"
@@ -53,6 +53,16 @@ func (a *JWTAuthentication) LoginUser(w http.ResponseWriter, context Authenticat
 }
 
 func (a *JWTAuthentication) Authenticate(w http.ResponseWriter, r *http.Request) (*AuthenticationContext, error) {
+	claims, err := a.getClaimsWithTokenCheck(w, r)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &claims.AuthenticationContext, nil
+}
+
+func (a *JWTAuthentication) getClaimsWithTokenCheck(w http.ResponseWriter, r *http.Request) (*authClaims, error) {
 	cookie, err := r.Cookie(jwtTokenFieldName)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -81,6 +91,5 @@ func (a *JWTAuthentication) Authenticate(w http.ResponseWriter, r *http.Request)
 		return nil, errors.New("token is invalid")
 	}
 
-	return &claims.AuthenticationContext, nil
-
+	return claims, nil
 }

@@ -1,4 +1,4 @@
-package auth
+package myauth
 
 import "net/http"
 

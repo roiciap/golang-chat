@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/roiciap/golang/user-api/auth"
+	"github.com/roiciap/golang/myauth"
 	"github.com/roiciap/golang/user-api/model"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
@@ -21,10 +21,10 @@ var (
 
 type AccountHandler struct {
 	Store        *credDatastore
-	AuthStrategy *auth.IAuthenticationStrategy
+	AuthStrategy *myauth.IAuthenticationStrategy
 }
 
-func CreateAccountHandler(authStrategy auth.IAuthenticationStrategy, creds ...model.Credentials) (*AccountHandler, error) {
+func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...model.Credentials) (*AccountHandler, error) {
 	handler := &AccountHandler{
 		Store: &credDatastore{
 			Database: map[int]model.Account{},
