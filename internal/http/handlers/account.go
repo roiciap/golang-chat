@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/roiciap/golang/myauth"
-	"github.com/roiciap/golang/user-api/model"
+	domain "github.com/roiciap/golang/internal/business/domains"
+	"github.com/roiciap/golang/internal/http/datatransfers/requests"
+	myauth "github.com/roiciap/golang/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
 )
@@ -24,10 +25,10 @@ type AccountHandler struct {
 	AuthStrategy *myauth.IAuthenticationStrategy
 }
 
-func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...model.Credentials) (*AccountHandler, error) {
+func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...requests.UserRequest) (*AccountHandler, error) {
 	handler := &AccountHandler{
 		Store: &credDatastore{
-			Database: map[int]model.Account{},
+			Database: map[int]domain.UserDomain{},
 			RWMutex:  &sync.RWMutex{},
 			nextId:   1,
 		},
@@ -45,7 +46,7 @@ func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...
 }
 
 type credDatastore struct {
-	Database map[int]model.Account
+	Database map[int]domain.UserDomain
 	nextId   int
 	*sync.RWMutex
 }
@@ -65,7 +66,7 @@ func (h *AccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
-	var creds model.Credentials
+	var creds requests.UserRequest
 	err := readCredsFromBody(r.Body, &creds)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -85,7 +86,7 @@ func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
-	var creds model.Credentials
+	var creds requests.UserRequest
 	err := readCredsFromBody(r.Body, &creds)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -103,7 +104,7 @@ func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *AccountHandler) addUser(creds model.Credentials) (int, error) {
+func (h *AccountHandler) addUser(creds requests.UserRequest) (int, error) {
 	if h.findCredId(creds) != -1 {
 		return -1, errors.New("user  " + creds.Login + " already exist")
 	}
@@ -112,14 +113,14 @@ func (h *AccountHandler) addUser(creds model.Credentials) (int, error) {
 	if err != nil {
 		return -1, errors.New("problem creating user")
 	}
-	newUser := model.Account{Login: creds.Login, PasswordHash: hash}
+	newUser := domain.UserDomain{Login: creds.Login, PasswordHash: hash}
 	userId := h.Store.nextId
 	h.Store.Database[userId] = newUser
 	h.Store.nextId++
 	return userId, nil
 }
 
-func (h *AccountHandler) checkUserCreds(creds model.Credentials) error {
+func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) error {
 	accId := h.findCredId(creds)
 	if accId == -1 {
 		return errors.New("user doesnt exist")
@@ -137,7 +138,7 @@ func (h *AccountHandler) checkUserCreds(creds model.Credentials) error {
 	return nil
 }
 
-func (h *AccountHandler) findCredId(creds model.Credentials) int {
+func (h *AccountHandler) findCredId(creds requests.UserRequest) int {
 	for id, value := range h.Store.Database {
 		if value.Login == creds.Login {
 			return id
@@ -146,7 +147,7 @@ func (h *AccountHandler) findCredId(creds model.Credentials) int {
 	return -1
 }
 
-func readCredsFromBody(body io.ReadCloser, creds *model.Credentials) error {
+func readCredsFromBody(body io.ReadCloser, creds *requests.UserRequest) error {
 
 	err := json.NewDecoder(body).Decode(creds)
 	if err != nil {

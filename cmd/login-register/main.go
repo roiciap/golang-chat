@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/roiciap/golang/myauth"
-	"github.com/roiciap/golang/user-api/handlers"
+	"github.com/roiciap/golang/internal/http/handlers"
+	myauth "github.com/roiciap/golang/pkg/auth"
 )
 
 func main() {
