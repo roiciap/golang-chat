@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"sync"
 
 	domain "github.com/roiciap/golang/internal/business/domains"
@@ -16,8 +17,9 @@ import (
 )
 
 var (
-	loginRegex    = regexp.MustCompile(`^\/login$`)
-	registerRegex = regexp.MustCompile(`^\/register$`)
+	loginRegex           = regexp.MustCompile(`^\/login$`)
+	registerRegex        = regexp.MustCompile(`^\/register$`)
+	getUserSettingsRegex = regexp.MustCompile(`^\/settings\/(\d+)$`)
 )
 
 type AccountHandler struct {
@@ -59,6 +61,9 @@ func (h *AccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case r.Method == http.MethodPost && registerRegex.MatchString(r.URL.Path):
 		h.register(w, r)
+		return
+	case r.Method == http.MethodGet && getUserSettingsRegex.MatchString(r.URL.Path):
+		h.getSettings(w, r)
 		return
 	default:
 		notFound(w, r)
@@ -122,6 +127,44 @@ func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *AccountHandler) getSettings(w http.ResponseWriter, r *http.Request) {
+	matches := getUserSettingsRegex.FindStringSubmatch(r.URL.Path)
+	if len(matches) < 2 {
+		notFound(w, r)
+		return
+	}
+
+	authContext, err := h.AuthStrategy.Authenticate(w, r)
+	if err != nil {
+		return
+	}
+
+	userId, err := strconv.Atoi(matches[1])
+	if err != nil {
+		http.Error(w, "Bad user ID", http.StatusBadRequest)
+		return
+	}
+
+	h.Store.RLock()
+	user, ok := h.Store.Database[userId]
+	h.Store.RUnlock()
+
+	if !ok {
+		http.Error(w, "Couldnt find user", http.StatusBadRequest)
+		return
+	}
+
+	if userId != authContext.UserId {
+		http.Error(w, "You cant see other users settings !", http.StatusUnauthorized)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"response": "This is private data of user ` + user.Login + `"}`))
+}
+
+///
 
 func (h *AccountHandler) addUser(creds requests.UserRequest) (int, error) {
 	if h.findCredId(creds) != -1 {
