@@ -22,7 +22,7 @@ var (
 
 type AccountHandler struct {
 	Store        *credDatastore
-	AuthStrategy *myauth.IAuthenticationStrategy
+	AuthStrategy myauth.IAuthenticationStrategy
 }
 
 func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...requests.UserRequest) (*AccountHandler, error) {
@@ -32,7 +32,7 @@ func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...
 			RWMutex:  &sync.RWMutex{},
 			nextId:   1,
 		},
-		AuthStrategy: &authStrategy,
+		AuthStrategy: authStrategy,
 	}
 
 	var errs error
@@ -74,11 +74,20 @@ func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.Store.RLock()
-	err = h.checkUserCreds(creds)
+	id, err := h.checkUserCreds(creds)
 	h.Store.RUnlock()
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = h.AuthStrategy.LoginUser(w, myauth.AuthenticationContext{
+		UserId: id,
+	})
+
+	if err != nil {
+		http.Error(w, "problem signing in, try again later", http.StatusInternalServerError)
 		return
 	}
 
@@ -94,13 +103,23 @@ func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.Store.RWMutex.Lock()
-	_, err = h.addUser(creds)
+	newUserId, err := h.addUser(creds)
 	h.Store.RWMutex.Unlock()
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	err = h.AuthStrategy.LoginUser(w, myauth.AuthenticationContext{
+		UserId: newUserId,
+	})
+
+	if err != nil {
+		http.Error(w, "Account got created, try to sign in", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -120,10 +139,10 @@ func (h *AccountHandler) addUser(creds requests.UserRequest) (int, error) {
 	return userId, nil
 }
 
-func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) error {
+func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) (int, error) {
 	accId := h.findCredId(creds)
 	if accId == -1 {
-		return errors.New("user doesnt exist")
+		return accId, errors.New("user doesnt exist")
 	}
 
 	acc := h.Store.Database[accId]
@@ -131,11 +150,11 @@ func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) error {
 	err := bcrypt.CompareHashAndPassword([]byte(acc.PasswordHash), []byte(creds.Password))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return errors.New("passwords doesnt match")
+			return accId, errors.New("passwords doesnt match")
 		}
-		return errors.New("internal: problem in comparing passwords")
+		return accId, errors.New("internal: problem in comparing passwords")
 	}
-	return nil
+	return accId, nil
 }
 
 func (h *AccountHandler) findCredId(creds requests.UserRequest) int {
@@ -148,7 +167,6 @@ func (h *AccountHandler) findCredId(creds requests.UserRequest) int {
 }
 
 func readCredsFromBody(body io.ReadCloser, creds *requests.UserRequest) error {
-
 	err := json.NewDecoder(body).Decode(creds)
 	if err != nil {
 		return err
