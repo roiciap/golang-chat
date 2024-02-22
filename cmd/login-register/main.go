@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/roiciap/golang/internal/http/handlers"
-	myauth "github.com/roiciap/golang/pkg/auth"
+	"github.com/roiciap/golang-auth-api/internal/http/handlers"
+	myauth "github.com/roiciap/golang-auth-api/pkg/auth"
 )
 
 func initHttpHandler() (http.Handler, error) {
