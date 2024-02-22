@@ -7,4 +7,4 @@ require (
 	gopkg.in/validator.v2 v2.0.1
 )
 
-require github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+require github.com/golang-jwt/jwt v3.2.2+incompatible
