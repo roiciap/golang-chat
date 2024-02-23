@@ -1,0 +1,23 @@
+version: '3.7'
+
+services:
+  postgres:
+    image: postgres
+    container_name: postgres_container
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: account
+      PGDATA: /data/postgres
+    volumes:
+      - ./volumes/postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - webapi_network
+    restart: unless-stopped
+
+
+networks:
+  webapi_network:
+    driver: bridge
