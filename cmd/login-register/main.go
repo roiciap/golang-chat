@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/roiciap/golang-chat/internal/data/db"
 	"github.com/roiciap/golang-chat/internal/http/handlers"
 	myauth "github.com/roiciap/golang-chat/pkg/auth"
 )
@@ -27,6 +28,12 @@ func initHttpHandler() (http.Handler, error) {
 }
 
 func main() {
+	err := db.Migrate()
+	if err != nil {
+		log.Fatal("Problem migrating database")
+		os.Exit(1)
+	}
+
 	mux := http.NewServeMux()
 	handler, err := initHttpHandler()
 

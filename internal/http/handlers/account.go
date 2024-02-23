@@ -27,10 +27,10 @@ type AccountHandler struct {
 	AuthStrategy myauth.IAuthenticationStrategy
 }
 
-func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...requests.UserRequest) (*AccountHandler, error) {
+func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...requests.AccountRequest) (*AccountHandler, error) {
 	handler := &AccountHandler{
 		Store: &credDatastore{
-			Database: map[int]domain.UserDomain{},
+			Database: map[int]domain.AccountDomain{},
 			RWMutex:  &sync.RWMutex{},
 			nextId:   1,
 		},
@@ -48,7 +48,7 @@ func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...
 }
 
 type credDatastore struct {
-	Database map[int]domain.UserDomain
+	Database map[int]domain.AccountDomain
 	nextId   int
 	*sync.RWMutex
 }
@@ -71,7 +71,7 @@ func (h *AccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
-	var creds requests.UserRequest
+	var creds requests.AccountRequest
 	err := readCredsFromBody(r.Body, &creds)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -100,7 +100,7 @@ func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
-	var creds requests.UserRequest
+	var creds requests.AccountRequest
 	err := readCredsFromBody(r.Body, &creds)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -166,7 +166,7 @@ func (h *AccountHandler) getSettings(w http.ResponseWriter, r *http.Request) {
 
 ///
 
-func (h *AccountHandler) addUser(creds requests.UserRequest) (int, error) {
+func (h *AccountHandler) addUser(creds requests.AccountRequest) (int, error) {
 	if h.findCredId(creds) != -1 {
 		return -1, errors.New("user  " + creds.Login + " already exist")
 	}
@@ -175,14 +175,14 @@ func (h *AccountHandler) addUser(creds requests.UserRequest) (int, error) {
 	if err != nil {
 		return -1, errors.New("problem creating user")
 	}
-	newUser := domain.UserDomain{Login: creds.Login, PasswordHash: hash}
+	newUser := domain.AccountDomain{Login: creds.Login, PasswordHash: hash}
 	userId := h.Store.nextId
 	h.Store.Database[userId] = newUser
 	h.Store.nextId++
 	return userId, nil
 }
 
-func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) (int, error) {
+func (h *AccountHandler) checkUserCreds(creds requests.AccountRequest) (int, error) {
 	accId := h.findCredId(creds)
 	if accId == -1 {
 		return accId, errors.New("user doesnt exist")
@@ -200,7 +200,7 @@ func (h *AccountHandler) checkUserCreds(creds requests.UserRequest) (int, error)
 	return accId, nil
 }
 
-func (h *AccountHandler) findCredId(creds requests.UserRequest) int {
+func (h *AccountHandler) findCredId(creds requests.AccountRequest) int {
 	for id, value := range h.Store.Database {
 		if value.Login == creds.Login {
 			return id
@@ -209,7 +209,7 @@ func (h *AccountHandler) findCredId(creds requests.UserRequest) int {
 	return -1
 }
 
-func readCredsFromBody(body io.ReadCloser, creds *requests.UserRequest) error {
+func readCredsFromBody(body io.ReadCloser, creds *requests.AccountRequest) error {
 	err := json.NewDecoder(body).Decode(creds)
 	if err != nil {
 		return err
