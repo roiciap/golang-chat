@@ -1,4 +1,4 @@
-module github.com/roiciap/golang-auth-api
+module github.com/roiciap/golang-chat
 
 go 1.21.4
 

@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"sync"
 
-	domain "github.com/roiciap/golang-auth-api/internal/business/domains"
-	"github.com/roiciap/golang-auth-api/internal/http/datatransfers/requests"
-	myauth "github.com/roiciap/golang-auth-api/pkg/auth"
+	domain "github.com/roiciap/golang-chat/internal/business/domains"
+	"github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
+	myauth "github.com/roiciap/golang-chat/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
 )
