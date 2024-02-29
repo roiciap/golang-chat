@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/roiciap/golang-chat/internal/data/db"
+	"github.com/roiciap/golang-chat/internal/data/db/migrations"
 	"github.com/roiciap/golang-chat/internal/http/handlers"
 	myauth "github.com/roiciap/golang-chat/pkg/auth"
 )
@@ -20,15 +19,12 @@ func initHttpHandler() (http.Handler, error) {
 	}
 
 	authHandler := myauth.CreateJWTAuthentication([]byte(jwtSecret))
-	handler, err := handlers.CreateAccountHandler(authHandler)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+	handler := handlers.CreateAccountHandler(authHandler)
 	return handler, nil
 }
 
 func main() {
-	err := db.Migrate()
+	err := migrations.Migrate()
 	if err != nil {
 		log.Fatal("Problem migrating database")
 		os.Exit(1)

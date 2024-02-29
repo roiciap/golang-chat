@@ -5,11 +5,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormDatabaseSingleton struct {
+type AccountDatabaseSingleton struct {
 	database *gorm.DB
 }
 
-func (s *GormDatabaseSingleton) GetPostgresDB() (*gorm.DB, error) {
+func (s *AccountDatabaseSingleton) GetPostgresDB() (*gorm.DB, error) {
 	var err error
 	if s.database == nil {
 		s.database, err = newGormDb()

@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"sync"
 
-	domain "github.com/roiciap/golang-chat/internal/business/domains"
-	"github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
+	requests "github.com/roiciap/golang-chat/internal/http/datatransfers/dto"
+	dto "github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
+	"github.com/roiciap/golang-chat/internal/services/crud"
 	myauth "github.com/roiciap/golang-chat/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
@@ -23,34 +23,15 @@ var (
 )
 
 type AccountHandler struct {
-	Store        *credDatastore
 	AuthStrategy myauth.IAuthenticationStrategy
 }
 
-func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy, creds ...requests.AccountRequest) (*AccountHandler, error) {
+func CreateAccountHandler(authStrategy myauth.IAuthenticationStrategy) *AccountHandler {
 	handler := &AccountHandler{
-		Store: &credDatastore{
-			Database: map[int]domain.AccountDomain{},
-			RWMutex:  &sync.RWMutex{},
-			nextId:   1,
-		},
 		AuthStrategy: authStrategy,
 	}
 
-	var errs error
-	for _, credsItem := range creds {
-		_, err := handler.addUser(credsItem)
-		if err != nil {
-			errs = errors.Join(errs, err)
-		}
-	}
-	return handler, errs
-}
-
-type credDatastore struct {
-	Database map[int]domain.AccountDomain
-	nextId   int
-	*sync.RWMutex
+	return handler
 }
 
 func (h *AccountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -78,9 +59,7 @@ func (h *AccountHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Store.RLock()
-	id, err := h.checkUserCreds(creds)
-	h.Store.RUnlock()
+	id, err := h.getUserId(creds)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -107,9 +86,14 @@ func (h *AccountHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.Store.RWMutex.Lock()
-	newUserId, err := h.addUser(creds)
-	h.Store.RWMutex.Unlock()
+	accDto, err := bcryptUserCreds(creds)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	newUserId, err := crud.AddAccount(accDto)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -140,17 +124,15 @@ func (h *AccountHandler) getSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId, err := strconv.Atoi(matches[1])
+	userId, err := readUserIdFromUrl(matches[1])
 	if err != nil {
 		http.Error(w, "Bad user ID", http.StatusBadRequest)
 		return
 	}
 
-	h.Store.RLock()
-	user, ok := h.Store.Database[userId]
-	h.Store.RUnlock()
+	user, err := crud.GetAccountById(userId)
 
-	if !ok {
+	if err != nil {
 		http.Error(w, "Couldnt find user", http.StatusBadRequest)
 		return
 	}
@@ -164,49 +146,34 @@ func (h *AccountHandler) getSettings(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"response": "This is private data of user ` + user.Login + `"}`))
 }
 
-///
-
-func (h *AccountHandler) addUser(creds requests.AccountRequest) (int, error) {
-	if h.findCredId(creds) != -1 {
-		return -1, errors.New("user  " + creds.Login + " already exist")
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(creds.Password), 14)
+func (h *AccountHandler) getUserId(creds requests.AccountRequest) (uint, error) {
+	acc, err := crud.GetAccountByLogin(creds.Login)
 	if err != nil {
-		return -1, errors.New("problem creating user")
-	}
-	newUser := domain.AccountDomain{Login: creds.Login, PasswordHash: hash}
-	userId := h.Store.nextId
-	h.Store.Database[userId] = newUser
-	h.Store.nextId++
-	return userId, nil
-}
-
-func (h *AccountHandler) checkUserCreds(creds requests.AccountRequest) (int, error) {
-	accId := h.findCredId(creds)
-	if accId == -1 {
-		return accId, errors.New("user doesnt exist")
+		return 0, errors.New("user doesnt exist")
 	}
 
-	acc := h.Store.Database[accId]
-
-	err := bcrypt.CompareHashAndPassword([]byte(acc.PasswordHash), []byte(creds.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(acc.PasswordHash), []byte(creds.Password))
 	if err != nil {
 		if err == bcrypt.ErrMismatchedHashAndPassword {
-			return accId, errors.New("passwords doesnt match")
+			return 0, errors.New("passwords doesnt match")
 		}
-		return accId, errors.New("internal: problem in comparing passwords")
+		return 0, errors.New("internal: problem in comparing passwords")
 	}
-	return accId, nil
+	return acc.ID, nil
 }
 
-func (h *AccountHandler) findCredId(creds requests.AccountRequest) int {
-	for id, value := range h.Store.Database {
-		if value.Login == creds.Login {
-			return id
-		}
+func bcryptUserCreds(acc requests.AccountRequest) (dto.AccountDto, error) {
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(acc.Password), 14)
+	if err != nil {
+		return dto.AccountDto{}, err
 	}
-	return -1
+
+	accDomain := dto.AccountDto{
+		Login:        acc.Login,
+		PasswordHash: passwordHash,
+	}
+
+	return accDomain, nil
 }
 
 func readCredsFromBody(body io.ReadCloser, creds *requests.AccountRequest) error {
@@ -218,4 +185,15 @@ func readCredsFromBody(body io.ReadCloser, creds *requests.AccountRequest) error
 		return err
 	}
 	return nil
+}
+
+func readUserIdFromUrl(urlPart string) (uint, error) {
+	userId, err := strconv.Atoi(urlPart)
+	if err != nil {
+		return 0, err
+	}
+	if userId < 0 {
+		return 0, err
+	}
+	return uint(userId), nil
 }

@@ -8,5 +8,5 @@ type IAuthenticationStrategy interface {
 }
 
 type AuthenticationContext struct {
-	UserId int
+	UserId uint
 }
