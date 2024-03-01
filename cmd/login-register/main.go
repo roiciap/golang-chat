@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/roiciap/golang-chat/internal/data/db/migrations"
+	"github.com/roiciap/golang-chat/internal/data/migrations"
 	"github.com/roiciap/golang-chat/internal/http/handlers"
 	myauth "github.com/roiciap/golang-chat/pkg/auth"
 )

@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/roiciap/golang-chat/internal/data/crud"
+	dbmodels "github.com/roiciap/golang-chat/internal/data/models"
 	requests "github.com/roiciap/golang-chat/internal/http/datatransfers/dto"
-	dto "github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
-	"github.com/roiciap/golang-chat/internal/services/crud"
 	myauth "github.com/roiciap/golang-chat/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/validator.v2"
@@ -162,13 +162,13 @@ func (h *AccountHandler) getUserId(creds requests.AccountRequest) (uint, error) 
 	return acc.ID, nil
 }
 
-func bcryptUserCreds(acc requests.AccountRequest) (dto.AccountDto, error) {
+func bcryptUserCreds(acc requests.AccountRequest) (dbmodels.AccountDbCreate, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(acc.Password), 14)
 	if err != nil {
-		return dto.AccountDto{}, err
+		return dbmodels.AccountDbCreate{}, err
 	}
 
-	accDomain := dto.AccountDto{
+	accDomain := dbmodels.AccountDbCreate{
 		Login:        acc.Login,
 		PasswordHash: passwordHash,
 	}

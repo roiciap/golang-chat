@@ -2,7 +2,7 @@ package migrations
 
 import (
 	dbmodels "github.com/roiciap/golang-chat/internal/data/models"
-	dbservices "github.com/roiciap/golang-chat/internal/data/services"
+	dbservices "github.com/roiciap/golang-chat/internal/services/db"
 )
 
 func Up_1() error {

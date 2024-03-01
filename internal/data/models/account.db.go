@@ -2,7 +2,6 @@ package dbmodels
 
 import (
 	"github.com/roiciap/golang-chat/internal/business/domain"
-	dto "github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
 	"gorm.io/gorm"
 )
 
@@ -20,9 +19,14 @@ func (acc *AccountDb) ToDomain() *domain.AccountDomain {
 	}
 }
 
-func AccountDbFromDto(data dto.AccountDto) AccountDb {
+type AccountDbCreate struct {
+	Login        string
+	PasswordHash []byte
+}
+
+func (ac *AccountDbCreate) GetDbModel() AccountDb {
 	return AccountDb{
-		Username:     data.Login,
-		PasswordHash: string(data.PasswordHash),
+		Username:     ac.Login,
+		PasswordHash: string(ac.PasswordHash),
 	}
 }

@@ -3,18 +3,17 @@ package crud
 import (
 	"github.com/roiciap/golang-chat/internal/business/domain"
 	dbmodels "github.com/roiciap/golang-chat/internal/data/models"
-	dbservices "github.com/roiciap/golang-chat/internal/data/services"
-	dto "github.com/roiciap/golang-chat/internal/http/datatransfers/requests"
+	dbservices "github.com/roiciap/golang-chat/internal/services/db"
 	"gorm.io/gorm"
 )
 
-func AddAccount(toAdd dto.AccountDto) (uint, error) {
+func AddAccount(toAdd dbmodels.AccountDbCreate) (uint, error) {
 	db, err := getDb()
 	if err != nil {
 		return 0, err
 	}
 
-	dbData := dbmodels.AccountDbFromDto(toAdd)
+	dbData := toAdd.GetDbModel()
 	result := db.Create(&dbData)
 
 	if result.Error != nil {
@@ -52,7 +51,7 @@ func getAccount(acc *dbmodels.AccountDb) error {
 	if err != nil {
 		return err
 	}
-	result := db.First(acc)
+	result := db.Where(*acc).First(&acc)
 
 	if result.Error != nil {
 		return result.Error
